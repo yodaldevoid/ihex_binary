@@ -9,4 +9,4 @@ repository = "https://github.com/yodaldevoid/ihex_binary"
 [dependencies]
 ihex = "3.0.0"
 log = "0.4.0"
-thiserror = "1.0.0"
+thiserror = "1.0.2"
