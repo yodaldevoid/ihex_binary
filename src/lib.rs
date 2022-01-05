@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{self, Read};
+use std::path::Path;
 
 use ihex::{Reader, ReaderError, Record};
 use log::*;
@@ -15,12 +16,12 @@ pub enum LoadError {
     Unpacking(#[from] UnpackingError),
 }
 
-pub fn load_file(
-    file_path: &str,
+pub fn load_file<P: AsRef<Path>>(
+    path: P,
     binary_size: usize,
     base_offset: usize,
 ) -> Result<(Vec<u8>, usize), LoadError> {
-    let mut file = File::open(file_path).map_err(LoadError::FailedOpen)?;
+    let mut file = File::open(path).map_err(LoadError::FailedOpen)?;
     let mut file_buf = Vec::new();
     file.read_to_end(&mut file_buf)
         .map_err(LoadError::FailedRead)?;
