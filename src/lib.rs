@@ -61,6 +61,7 @@ pub trait ReaderExt {
         binary_size: usize,
         base_offset: usize,
     ) -> Result<(Vec<u8>, usize), UnpackingError>;
+    fn to_vec_minimal(self, base_offset: usize) -> Result<(Vec<u8>, usize), ReaderError>;
     fn to_array<const N: usize>(
         self,
         base_offset: usize,
@@ -79,6 +80,10 @@ where
         let mut binary = vec![0xFF; binary_size];
         let used_bytes = unpack_records(&mut self, &mut binary, base_offset)?;
         Ok((binary, used_bytes))
+    }
+
+    fn to_vec_minimal(mut self, base_offset: usize) -> Result<(Vec<u8>, usize), ReaderError> {
+        unpack_records_minimal(&mut self, base_offset)
     }
 
     fn to_array<const N: usize>(
@@ -132,4 +137,42 @@ fn unpack_records(
     }
 
     Ok(used_bytes)
+}
+
+fn unpack_records_minimal(
+    records: &mut impl Iterator<Item = Result<Record, ReaderError>>,
+    base_offset: usize,
+) -> Result<(Vec<u8>, usize), ReaderError> {
+    let mut binary = Vec::new();
+    let mut base_address = 0;
+    let mut used_bytes = 0;
+
+    for rec in records {
+        debug!("base_address=0x{:04X} rec={:?}", base_address, rec);
+        match rec? {
+            Record::Data { offset, value } => {
+                let end_addr = base_address + offset as usize + value.len();
+                if end_addr > binary.len() {
+                    binary.resize(end_addr, 0xFF);
+                }
+
+                used_bytes += value.len();
+                for (n, b) in value.iter().enumerate() {
+                    binary[base_address + offset as usize + n] = *b;
+                }
+            }
+            Record::ExtendedSegmentAddress(base) => {
+                base_address = ((base as usize) << 4) - base_offset
+            }
+            Record::ExtendedLinearAddress(base) => {
+                base_address = ((base as usize) << 16) - base_offset
+            }
+            Record::EndOfFile => break,
+            // Defines the start location for our program. This doesn't concern us so we
+            // ignore it.
+            Record::StartLinearAddress(_) | Record::StartSegmentAddress { .. } => {}
+        }
+    }
+
+    Ok((binary, used_bytes))
 }
