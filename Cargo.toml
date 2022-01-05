@@ -1,0 +1,12 @@
+[package]
+name = "ihex_binary"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A convenience crate to parse a IHEX file into a vector of bytes."
+repository = "https://github.com/yodaldevoid/ihex_binary"
+
+[dependencies]
+ihex = "3.0.0"
+log = "0.4.0"
+thiserror = "1.0.0"
