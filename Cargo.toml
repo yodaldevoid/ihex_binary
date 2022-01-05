@@ -1,9 +1,9 @@
 [package]
-name = "ihex_binary"
+name = "ihex_ext"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "A convenience crate to parse a IHEX file into a vector of bytes."
+description = "A crate adding convenience methods for `ihex`"
 repository = "https://github.com/yodaldevoid/ihex_binary"
 
 [dependencies]

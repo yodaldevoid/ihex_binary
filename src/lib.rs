@@ -26,7 +26,9 @@ pub fn load_file(
         .map_err(LoadError::FailedRead)?;
 
     let file_str = String::from_utf8_lossy(&file_buf[..]);
-    unpack_records(Reader::new(&file_str), binary_size, base_offset).map_err(LoadError::from)
+    Reader::new(&file_str)
+        .to_vec(binary_size, base_offset)
+        .map_err(LoadError::from)
 }
 
 #[derive(Debug, PartialEq, Error)]
@@ -37,13 +39,48 @@ pub enum UnpackingError {
     AddressTooHigh(usize, usize),
 }
 
-pub fn unpack_records(
-    records: impl Iterator<Item = Result<Record, ReaderError>>,
-    binary_size: usize,
+pub trait ReaderExt {
+    fn to_vec(
+        self,
+        binary_size: usize,
+        base_offset: usize,
+    ) -> Result<(Vec<u8>, usize), UnpackingError>;
+    fn to_array<const N: usize>(
+        self,
+        base_offset: usize,
+    ) -> Result<([u8; N], usize), UnpackingError>;
+}
+
+impl<I> ReaderExt for I
+where
+    I: Iterator<Item = Result<Record, ReaderError>>,
+{
+    fn to_vec(
+        mut self,
+        binary_size: usize,
+        base_offset: usize,
+    ) -> Result<(Vec<u8>, usize), UnpackingError> {
+        let mut binary = vec![0xFF; binary_size];
+        let used_bytes = unpack_records(&mut self, &mut binary, base_offset)?;
+        Ok((binary, used_bytes))
+    }
+
+    fn to_array<const N: usize>(
+        mut self,
+        base_offset: usize,
+    ) -> Result<([u8; N], usize), UnpackingError> {
+        let mut binary = [0xFF; N];
+        let used_bytes = unpack_records(&mut self, &mut binary, base_offset)?;
+        Ok((binary, used_bytes))
+    }
+}
+
+fn unpack_records(
+    records: &mut impl Iterator<Item = Result<Record, ReaderError>>,
+    binary: &mut [u8],
     base_offset: usize,
-) -> Result<(Vec<u8>, usize), UnpackingError> {
+) -> Result<usize, UnpackingError> {
     let mut base_address = 0;
-    let mut binary = vec![0xFF; binary_size];
     let mut used_bytes = 0;
 
     for rec in records {
@@ -53,8 +90,8 @@ pub fn unpack_records(
                 match rec {
                     Record::Data { offset, value } => {
                         let end_addr = base_address + offset as usize + value.len();
-                        if end_addr > binary_size {
-                            return Err(UnpackingError::AddressTooHigh(end_addr, binary_size));
+                        if end_addr > binary.len() {
+                            return Err(UnpackingError::AddressTooHigh(end_addr, binary.len()));
                         }
 
                         used_bytes += value.len();
@@ -78,5 +115,5 @@ pub fn unpack_records(
         }
     }
 
-    Ok((binary, used_bytes))
+    Ok(used_bytes)
 }
