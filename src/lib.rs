@@ -16,7 +16,7 @@ pub enum LoadError {
     Unpacking(#[from] UnpackingError),
 }
 
-pub fn load_file<P: AsRef<Path>>(
+pub fn load_file_vec<P: AsRef<Path>>(
     path: P,
     binary_size: usize,
     base_offset: usize,
@@ -29,6 +29,21 @@ pub fn load_file<P: AsRef<Path>>(
     let file_str = String::from_utf8_lossy(&file_buf[..]);
     Reader::new(&file_str)
         .to_vec(binary_size, base_offset)
+        .map_err(LoadError::from)
+}
+
+pub fn load_file_array<P: AsRef<Path>, const N: usize>(
+    path: P,
+    base_offset: usize,
+) -> Result<([u8; N], usize), LoadError> {
+    let mut file = File::open(path).map_err(LoadError::FailedOpen)?;
+    let mut file_buf = Vec::new();
+    file.read_to_end(&mut file_buf)
+        .map_err(LoadError::FailedRead)?;
+
+    let file_str = String::from_utf8_lossy(&file_buf[..]);
+    Reader::new(&file_str)
+        .to_array::<N>(base_offset)
         .map_err(LoadError::from)
 }
 
